@@ -5,10 +5,19 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver import ChromeOptions
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+import pandas as pd
 
-URL = "https://fibalivestats.dcd.shared.geniussports.com/u/ABE/2310604/bs.html#ASFSK"
-page = requests.get(URL)
-soup = BeautifulSoup(page.text, "html")
+def soup_initializer(URL): 
+    page = requests.get(URL)
+    soup = BeautifulSoup(page.text, "html")
+    return soup
+  
+def initialize_driver(URL):
+    options = Options()
+    options.add_argument("--headless")
+    driver = webdriver.Chrome(options=options)
+    driver.get(URL)
+    return driver
 
 def flatten_and_append(data, new_list=None):
   if new_list is None:
@@ -22,30 +31,18 @@ def flatten_and_append(data, new_list=None):
 
   return new_list
 
-def selenium_extractor_bench(URL):
-    
-    options = Options()
-    options.add_argument("--headless") 
-    driver = webdriver.Chrome(options=options)
-    driver.get(URL)
-    
+def selenium_extractor_bench(driver):
     element_bench = driver.find_elements(By.CLASS_NAME, "bench")
     player_stats_bench = element_bench[0].text
     
     return player_stats_bench
-
-def selenium_extractor_starters(URL):
-    
-    options = Options()
-    options.add_argument("--headless") 
-    driver = webdriver.Chrome(options=options)
-    driver.get(URL)
-    
+  
+def selenium_extractor_starters(driver):
     element_starters = driver.find_elements(By.TAG_NAME, "tbody")
     player_stats_starters = element_starters[1].text
     
     return player_stats_starters
-
+  
 def dictionary_creator(boxscore_section):
 
   player_stats_splitted = boxscore_section.split("\n")
@@ -58,24 +55,45 @@ def dictionary_creator(boxscore_section):
 
   return starters
 
-boxscore = soup.find_all("table")[1]
-column_names = []
-headers = boxscore.find("thead").findAll("th")
+def dataframe_inserter(dictionary, dataframe):
+    for key, value in dictionary.items():
+        dataframe.loc[len(dataframe)] = value
+    return dataframe
+  
+def column_extractor(soup):    
+    boxscore = soup.find_all("table")[1]
+    column_names = []
+    headers = boxscore.find("thead").findAll("th")
 
-for th in headers:
-    column_names.append(th.text.strip())
-column_names = column_names[:24]
-
-player_stats_starters = dictionary_creator(selenium_extractor_starters("https://fibalivestats.dcd.shared.geniussports.com/u/ABE/2310604/bs.html#ASFSK"))
-player_stats_bench = dictionary_creator(selenium_extractor_bench("https://fibalivestats.dcd.shared.geniussports.com/u/ABE/2310604/bs.html#ASFSK"))
-
-import pandas as pd
-df = pd.DataFrame(columns= column_names)
-
-for key, value in player_stats_starters.items():
-    df.loc[len(df)] = value
+    for th in headers:
+        column_names.append(th.text.strip())
+    column_names = column_names[:24]
     
-for key, value in player_stats_bench.items():
-    df.loc[len(df)] = value
+    return column_names
+  
+def main():
+    URL = "https://fibalivestats.dcd.shared.geniussports.com/u/ABE/2310539/bs.html#ASFSK"
     
-print(df)
+    soup = soup_initializer(URL)
+    driver = initialize_driver(URL)
+    
+    column_names = column_extractor(soup)
+    df = pd.DataFrame(columns= column_names)
+    
+    try:
+        starter_stats = selenium_extractor_starters(driver)
+        player_stats_starters = dictionary_creator(starter_stats)
+        
+        
+        bench_stats = selenium_extractor_bench(driver)
+        player_stats_bench = dictionary_creator(bench_stats)
+        
+        df = dataframe_inserter(player_stats_starters, df)
+        df = dataframe_inserter(player_stats_bench, df)
+        
+    finally:
+        driver.quit()
+        
+    return df
+
+print(main())
