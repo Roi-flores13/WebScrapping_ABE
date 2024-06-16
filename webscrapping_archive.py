@@ -7,6 +7,14 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import pandas as pd
 
+def team_checker(driver):
+    home_team = driver.find_elements(By.TAG_NAME, "tr")
+    home_team_finder = home_team[0].text
+    
+    if home_team_finder.split(" ")[0] == "ITS":
+        return True
+    return False
+
 def soup_initializer(URL): 
     page = requests.get(URL)
     soup = BeautifulSoup(page.text, "html")
@@ -80,19 +88,21 @@ def main():
     column_names = column_extractor(soup)
     df = pd.DataFrame(columns= column_names)
     
-    try:
-        starter_stats = selenium_extractor_starters(driver)
-        player_stats_starters = dictionary_creator(starter_stats)
-        
-        
-        bench_stats = selenium_extractor_bench(driver)
-        player_stats_bench = dictionary_creator(bench_stats)
-        
-        df = dataframe_inserter(player_stats_starters, df)
-        df = dataframe_inserter(player_stats_bench, df)
-        
-    finally:
-        driver.quit()
+    if team_checker(driver) == True:
+    
+        try:
+            starter_stats = selenium_extractor_starters(driver)
+            player_stats_starters = dictionary_creator(starter_stats)
+            
+            
+            bench_stats = selenium_extractor_bench(driver)
+            player_stats_bench = dictionary_creator(bench_stats)
+            
+            df = dataframe_inserter(player_stats_starters, df)
+            df = dataframe_inserter(player_stats_bench, df)
+            
+        finally:
+            driver.quit()
         
     return df
 
